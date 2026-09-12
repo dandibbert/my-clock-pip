@@ -110,7 +110,7 @@ struct ClockHome: View {
             HStack {
                 HStack(spacing: 6) { Circle().fill(accent).frame(width: 5, height: 5); Text("实时预览") }
                 Spacer()
-                Text("HH:MM:SS.mmm").fontDesign(.monospaced)
+                Text("HH:MM:SS.mmm").font(.system(.caption, design: .monospaced))
             }.font(.caption).foregroundStyle(.secondary)
             ClockPreview(pip: model.pip)
                 .aspectRatio(model.settings.layout.aspectRatio, contentMode: .fit)
