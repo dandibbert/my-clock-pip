@@ -9,10 +9,14 @@ func json(_ object: Any, at url: URL) throws {
 }
 try json(["info": ["author": "xcode", "version": 1]], at: root.appendingPathComponent("Contents.json"))
 func drawIcon(pixels: Int, file: String) throws {
-    let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
-                                 bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false, isPlanar: false,
-                                 colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-    let context = NSGraphicsContext(bitmapImageRep: bitmap)!
+    // Quartz does not support a 24-bit RGB drawing context. Use opaque RGBX,
+    // then encode a CGImage with no alpha channel for App Store icon compatibility.
+    guard let bitmap = CGContext(data: nil, width: pixels, height: pixels, bitsPerComponent: 8,
+                                 bytesPerRow: pixels * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                 bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else {
+        throw NSError(domain: "IconGenerator", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not create RGBX context"])
+    }
+    let context = NSGraphicsContext(cgContext: bitmap, flipped: false)
     NSGraphicsContext.saveGraphicsState(); NSGraphicsContext.current = context
     context.cgContext.scaleBy(x: CGFloat(pixels) / 1024, y: CGFloat(pixels) / 1024)
     NSColor(calibratedRed: 0.045, green: 0.064, blue: 0.077, alpha: 1).setFill()
@@ -30,7 +34,11 @@ func drawIcon(pixels: Int, file: String) throws {
     let value = NSAttributedString(string: ".123", attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: 155, weight: .semibold), .foregroundColor: mint])
     value.draw(at: NSPoint(x: (1024 - value.size().width) / 2, y: 129))
     NSGraphicsContext.restoreGraphicsState()
-    try bitmap.representation(using: .png, properties: [:])!.write(to: icons.appendingPathComponent(file))
+    guard let image = bitmap.makeImage(),
+          let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
+        throw NSError(domain: "IconGenerator", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not encode PNG"])
+    }
+    try png.write(to: icons.appendingPathComponent(file))
 }
 var entries: [[String: String]] = []
 let slots: [(String, Double, [Int])] = [
