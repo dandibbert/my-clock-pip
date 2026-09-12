@@ -199,7 +199,7 @@ extension PiPClock: AVPictureInPictureControllerDelegate, AVPictureInPictureSamp
         // The OS owns the outer window. Fixed high-resolution content scales without changing its aspect ratio.
     }
     func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, skipByInterval skipInterval: CMTime,
-                                   completionHandler: @escaping () -> Void) { completionHandler() }
+                                   completion completionHandler: @escaping () -> Void) { completionHandler() }
 }
 
 private final class ClockPreviewUIView: UIView {

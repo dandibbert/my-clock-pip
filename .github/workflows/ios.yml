@@ -24,27 +24,6 @@ jobs:
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           swift scripts/GenerateIcon.swift
           xcodegen generate
-      - name: Select an available iPhone simulator
-        id: simulator
-        run: |
-          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x.get("isAvailable") and x["name"].startswith("iPhone")))')
-          echo "id=$DEVICE" >> "$GITHUB_OUTPUT"
-          xcrun simctl boot "$DEVICE" || true
-          xcrun simctl bootstatus "$DEVICE" -b
-      - name: Build and test on iOS simulator
-        run: |
-          set -o pipefail
-          xcodebuild test -project MyClockPiP.xcodeproj -scheme MyClockPiP \
-            -configuration Debug -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}' \
-            -derivedDataPath build-sim -resultBundlePath TestResults.xcresult \
-            CODE_SIGNING_ALLOWED=NO | tee simulator-build.log
-      - name: Capture the running app
-        run: |
-          mkdir -p screenshots
-          xcrun simctl status_bar '${{ steps.simulator.outputs.id }}' override --time '09:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
-          xcrun simctl launch '${{ steps.simulator.outputs.id }}' com.dandibbert.myclockpip --uitesting
-          sleep 3
-          xcrun simctl io '${{ steps.simulator.outputs.id }}' screenshot screenshots/home.png
       - name: Build unsigned iPhone and iPad app
         run: |
           set -o pipefail
@@ -60,6 +39,35 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 30
+      - name: Compile app and tests before booting the simulator
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing -project MyClockPiP.xcodeproj -scheme MyClockPiP \
+            -configuration Debug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build-sim CODE_SIGNING_ALLOWED=NO | tee simulator-compile.log
+      - name: Select an available iPhone simulator
+        id: simulator
+        run: |
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for a in d["devices"].values() for x in a if x.get("isAvailable") and x["name"].startswith("iPhone")))')
+          echo "id=$DEVICE" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+      - name: Run renderer and interface tests on iOS simulator
+        run: |
+          set -o pipefail
+          xcodebuild test-without-building -project MyClockPiP.xcodeproj -scheme MyClockPiP \
+            -configuration Debug -destination 'platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}' \
+            -derivedDataPath build-sim -resultBundlePath TestResults.xcresult -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO | tee simulator-build.log
+      - name: Capture the running app
+        run: |
+          mkdir -p screenshots
+          xcrun simctl status_bar '${{ steps.simulator.outputs.id }}' override --time '09:41' --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100
+          xcrun simctl install '${{ steps.simulator.outputs.id }}' build-sim/Build/Products/Debug-iphonesimulator/MyClockPiP.app
+          xcrun simctl terminate '${{ steps.simulator.outputs.id }}' com.dandibbert.myclockpip || true
+          xcrun simctl launch '${{ steps.simulator.outputs.id }}' com.dandibbert.myclockpip --uitesting
+          sleep 3
+          xcrun simctl io '${{ steps.simulator.outputs.id }}' screenshot screenshots/home.png
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         if: always()
@@ -75,5 +83,6 @@ jobs:
           path: |
             TestResults.xcresult
             *-build.log
+            simulator-compile.log
           if-no-files-found: ignore
           retention-days: 7
