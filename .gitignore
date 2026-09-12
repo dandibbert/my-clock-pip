@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+.swiftpm/
+*.xcodeproj/
+App/Info.plist
+App/Assets.xcassets/
+build-*/
+dist/
+screenshots/
+*.xcresult/
+*-build.log
+*.ipa
+*.p12
+*.mobileprovision
