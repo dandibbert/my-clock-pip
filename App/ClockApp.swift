@@ -4,7 +4,7 @@ import SwiftUI
 struct MyClockPiPApp: App {
     @StateObject private var model = ClockModel()
     var body: some Scene {
-        WindowGroup { ClockHome(model: model).preferredColorScheme(.dark) }
+        WindowGroup { ClockRoot(model: model).preferredColorScheme(.dark) }
     }
 }
 
@@ -78,7 +78,6 @@ struct ClockHome: View {
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     PiPButton(pip: model.pip, accent: accent) {
-                        // Start only after the real sample-buffer source is visible on screen.
                         scroll.scrollTo("preview", anchor: .top)
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { model.pip.start() }
                     }
